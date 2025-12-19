@@ -4,31 +4,74 @@ import Link from 'next/link';
 import { Mail, Lock, ArrowRight } from 'lucide-react';
 import Button from '@/components/Button';
 import Logo from '@/components/Logo';
-import { useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { z } from 'zod';
+import { zodResolver } from '@hookform/resolvers/zod';
+import Input from '@/components/Input';
 import { useRouter } from 'next/navigation';
 import { useStore } from '@/store';
+
+// Schema de validação
+const loginSchema = z.object({
+    email: z.string().nonempty('O e-mail é obrigatório').email('Formato de e-mail inválido'),
+    password: z.string().min(6, 'A senha deve ter no mínimo 6 caracteres'),
+});
+
+type LoginFormData = z.infer<typeof loginSchema>;
 
 export default function LoginPage() {
     const router = useRouter();
     const { login } = useStore();
-    const [email, setEmail] = useState('');
-    const [password, setPassword] = useState('');
 
-    const handleSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
+    const {
+        register,
+        handleSubmit: hookFormSubmit,
+        formState: { errors, isSubmitting }
+    } = useForm<LoginFormData>({
+        resolver: zodResolver(loginSchema)
+    });
 
-        // Simulação de login - Em produção isso viria de uma API
-        console.log('Login attempt:', { email });
+    const onSubmit = (data: LoginFormData) => {
+        const { email, password } = data;
 
-        // Login mockado
-        login({
-            id: '1',
-            name: 'Paciente Teste',
-            email: email
-        }, 'mock-token-123456');
+        // Simulação de autenticação Cliente-Side
+        let role = 'PACIENTE';
+        let name = 'Paciente Teste';
+        let id = '1';
 
-        alert('Login realizado com sucesso! (Modo Simulação)');
-        router.push('/');
+        if (email.includes('admin')) {
+            role = 'ADMIN';
+            name = 'Administrador';
+            id = 'admin-1';
+        } else if (email.includes('medico')) {
+            role = 'MEDICO';
+            name = 'Dr. Silva';
+            id = 'med-1';
+        } else if (email.includes('atendente')) {
+            role = 'ATENDENTE';
+            name = 'Joana Atendente';
+            id = 'atend-1';
+        }
+
+        const user = { id, name, email, role };
+        const token = 'mock-token-client-side-' + Date.now();
+
+        document.cookie = `token=${token}; path=/; max-age=86400; SameSite=Lax`;
+        login(user, token);
+
+        switch (role) {
+            case 'ADMIN':
+                router.push('/admin/dashboard');
+                break;
+            case 'MEDICO':
+                router.push('/app/medico/agenda');
+                break;
+            case 'ATENDENTE':
+                router.push('/app/atendente/agendamentos');
+                break;
+            default:
+                router.push('/app/paciente/dashboard');
+        }
     };
 
     return (
@@ -43,59 +86,36 @@ export default function LoginPage() {
                         <p className="text-gray-600">Acesse sua conta para gerenciar sua saúde</p>
                     </div>
 
-                    <form className="space-y-6" onSubmit={handleSubmit}>
+                    <form className="space-y-6" onSubmit={hookFormSubmit(onSubmit)}>
                         <div>
-                            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-                                Email
-                            </label>
-                            <div className="relative">
-                                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                    <Mail className="h-5 w-5 text-gray-400" />
-                                </div>
-                                <input
-                                    id="email"
-                                    name="email"
-                                    type="email"
-                                    autoComplete="email"
-                                    required
-                                    value={email}
-                                    onChange={(e) => setEmail(e.target.value)}
-                                    className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-cyan-500 focus:border-cyan-500 transition"
-                                    placeholder="seu@email.com"
-                                />
-                            </div>
+                            <Input
+                                label="Email"
+                                type="email"
+                                placeholder="seu@email.com"
+                                {...register('email')}
+                                error={errors.email}
+                            />
                         </div>
 
                         <div>
                             <div className="flex items-center justify-between mb-1">
-                                <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-                                    Senha
-                                </label>
+                                <label className="text-sm font-medium text-gray-700"></label>
                                 <Link href="/recuperar-senha">
-                                    <span className="text-sm text-cyan-600 hover:text-cyan-500">Esqueceu a senha?</span>
+                                    <span className="text-sm text-cyan-600 hover:text-cyan-500 cursor-pointer">Esqueceu a senha?</span>
                                 </Link>
                             </div>
-                            <div className="relative">
-                                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                    <Lock className="h-5 w-5 text-gray-400" />
-                                </div>
-                                <input
-                                    id="password"
-                                    name="password"
-                                    type="password"
-                                    autoComplete="current-password"
-                                    required
-                                    value={password}
-                                    onChange={(e) => setPassword(e.target.value)}
-                                    className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-cyan-500 focus:border-cyan-500 transition"
-                                    placeholder="••••••••"
-                                />
-                            </div>
+                            <Input
+                                label="Senha"
+                                type="password"
+                                placeholder="••••••••"
+                                {...register('password')}
+                                error={errors.password}
+                            />
                         </div>
 
-                        <Button type="submit" className="w-full py-3 text-lg group">
-                            Entrar
-                            <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                        <Button type="submit" disabled={isSubmitting} className="w-full py-3 text-lg group">
+                            {isSubmitting ? 'Entrando...' : 'Entrar'}
+                            {!isSubmitting && <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />}
                         </Button>
                     </form>
 

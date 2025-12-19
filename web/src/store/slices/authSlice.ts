@@ -1,10 +1,10 @@
 import { StateCreator } from 'zustand'
 
 export interface AuthSlice {
-    user: { id: string; name: string; email: string } | null
+    user: { id: string; name: string; email: string; role: string } | null
     token: string | null
     isAuthenticated: boolean
-    login: (user: { id: string; name: string; email: string }, token: string) => void
+    login: (user: { id: string; name: string; email: string; role: string }, token: string) => void
     logout: () => void
 }
 

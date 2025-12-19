@@ -102,8 +102,8 @@ export default function Sidebar() {
                             key={item.href}
                             href={item.href}
                             className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${isActive
-                                    ? 'bg-cyan-50 text-cyan-700'
-                                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                                ? 'bg-cyan-50 text-cyan-700'
+                                : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                                 }`}
                             title={collapsed ? item.name : ''}
                         >
@@ -115,14 +115,18 @@ export default function Sidebar() {
             </nav>
 
             <div className="p-4 border-t border-gray-100">
-                <Link
-                    href="/login" // Simulate logout
-                    className="flex items-center gap-3 px-3 py-2 text-gray-600 hover:bg-red-50 hover:text-red-700 rounded-lg transition-colors"
+                <button
+                    onClick={() => {
+                        // Logout mockado client-side
+                        document.cookie = 'token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;'; // Deleta cookie
+                        window.location.href = '/login';
+                    }}
+                    className="w-full flex items-center gap-3 px-3 py-2 text-gray-600 hover:bg-red-50 hover:text-red-700 rounded-lg transition-colors"
                     title={collapsed ? "Sair" : ''}
                 >
                     <LogOut size={20} />
                     {!collapsed && <span className="font-medium">Sair</span>}
-                </Link>
+                </button>
             </div>
         </div>
     );
