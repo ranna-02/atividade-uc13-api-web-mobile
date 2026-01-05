@@ -14,7 +14,7 @@ import resultadoRoutes from './routes/resultados.js';
 import pushTokenRoutes from './routes/pushTokens.js';
 
 const app = express();
-const PORT = process.env.PORT || 3333;
+const PORT = process.env.PORT || 3000;
 
 // Middlewares globais
 app.use(express.json());
