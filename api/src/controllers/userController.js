@@ -2,7 +2,23 @@ import bcrypt from 'bcryptjs';
 import prisma from '../config/database.js';
 
 /**
- * LISTAR USUÁRIOS
+ * @swagger
+ * tags:
+ *   - name: Usuários
+ *     description: Gerenciamento de usuários (Admin/Atendente)
+ */
+
+/**
+ * @swagger
+ * /users:
+ *   get:
+ *     summary: Lista todos os usuários
+ *     tags: [Usuários]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Lista de usuários retornada com sucesso
  */
 export const listUsers = async (req, res) => {
   try {
@@ -29,7 +45,35 @@ export const listUsers = async (req, res) => {
 };
 
 /**
- * CRIAR USUÁRIO
+ * @swagger
+ * /users:
+ *   post:
+ *     summary: Cria um novo usuário (qualquer perfil)
+ *     tags: [Usuários]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - nome
+ *               - email
+ *               - senha
+ *               - perfil
+ *             properties:
+ *               nome:
+ *                 type: string
+ *               email:
+ *                 type: string
+ *               senha:
+ *                 type: string
+ *                 minLength: 8
+ *               perfil:
+ *                 type: string
+ *                 enum: [ADMIN, PACIENTE, ATENDENTE, MEDICO]
  */
 export const createUser = async (req, res) => {
   try {
@@ -54,10 +98,7 @@ export const createUser = async (req, res) => {
       });
     }
 
-    const emailExistente = await prisma.usuario.findUnique({
-      where: { email }
-    });
-
+    const emailExistente = await prisma.usuario.findUnique({ where: { email } });
     if (emailExistente) {
       return res.status(409).json({
         error: { code: 'RESOURCE_CONFLICT', message: 'Email já cadastrado' }
@@ -88,7 +129,19 @@ export const createUser = async (req, res) => {
 };
 
 /**
- * BUSCAR USUÁRIO
+ * @swagger
+ * /users/{id}:
+ *   get:
+ *     summary: Busca um usuário por ID
+ *     tags: [Usuários]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
  */
 export const getUser = async (req, res) => {
   try {
@@ -123,7 +176,19 @@ export const getUser = async (req, res) => {
 };
 
 /**
- * ATUALIZAR USUÁRIO
+ * @swagger
+ * /users/{id}:
+ *   put:
+ *     summary: Atualiza dados de um usuário
+ *     tags: [Usuários]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
  */
 export const updateUser = async (req, res) => {
   try {
@@ -139,7 +204,6 @@ export const updateUser = async (req, res) => {
     }
 
     const dadosAtualizacao = {};
-
     if (nome) dadosAtualizacao.nome = nome;
 
     if (email && email !== usuarioExistente.email) {
@@ -196,7 +260,19 @@ export const updateUser = async (req, res) => {
 };
 
 /**
- * "DELETAR" USUÁRIO (SOFT DELETE)
+ * @swagger
+ * /users/{id}:
+ *   delete:
+ *     summary: Desativa um usuário (Soft Delete)
+ *     tags: [Usuários]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
  */
 export const deleteUser = async (req, res) => {
   try {

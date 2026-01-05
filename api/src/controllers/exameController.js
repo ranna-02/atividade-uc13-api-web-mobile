@@ -3,12 +3,52 @@ import prisma from '../config/database.js';
 const STATUS_VALIDOS = ['AGENDADA', 'REALIZADA', 'CANCELADA', 'NAO_COMPARECEU'];
 
 /**
- * CRIAR EXAME
+ * @swagger
+ * tags:
+ *   - name: Exames
+ *     description: Gerenciamento de exames laboratoriais e clínicos
+ */
+
+/**
+ * @swagger
+ * /exames:
+ *   post:
+ *     summary: Cria um novo exame
+ *     tags: [Exames]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - nome
+ *               - pacienteId
+ *               - medicoId
+ *               - dia
+ *               - hora
+ *             properties:
+ *               nome:
+ *                 type: string
+ *               pacienteId:
+ *                 type: string
+ *               medicoId:
+ *                 type: string
+ *               dia:
+ *                 type: string
+ *                 format: date
+ *               hora:
+ *                 type: string
+ *                 example: "08:00"
+ *               detalhes:
+ *                 type: string
  */
 export const createExame = async (req, res) => {
   try {
     const { nome, pacienteId, medicoId, dia, hora, detalhes } = req.body;
-    const { userPerfil, userId } = req;
+    const { perfil: userPerfil, id: userId } = req.user;
 
     if (!nome || !pacienteId || !medicoId || !dia || !hora) {
       return res.status(400).json({
@@ -70,11 +110,17 @@ export const createExame = async (req, res) => {
 };
 
 /**
- * LISTAR EXAMES
+ * @swagger
+ * /exames:
+ *   get:
+ *     summary: Lista os exames do usuário logado
+ *     tags: [Exames]
+ *     security:
+ *       - bearerAuth: []
  */
 export const listExames = async (req, res) => {
   try {
-    const { userPerfil, userId } = req;
+    const { perfil: userPerfil, id: userId } = req.user;
 
     const where = {};
     if (userPerfil === 'PACIENTE') where.pacienteId = userId;
@@ -96,12 +142,24 @@ export const listExames = async (req, res) => {
 };
 
 /**
- * BUSCAR EXAME POR ID
+ * @swagger
+ * /exames/{id}:
+ *   get:
+ *     summary: Busca detalhes de um exame e seus resultados
+ *     tags: [Exames]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
  */
 export const getExame = async (req, res) => {
   try {
     const { id } = req.params;
-    const { userPerfil, userId } = req;
+    const { perfil: userPerfil, id: userId } = req.user;
 
     const exame = await prisma.exame.findUnique({
       where: { id },
@@ -130,18 +188,28 @@ export const getExame = async (req, res) => {
 };
 
 /**
- * ATUALIZAR EXAME
+ * @swagger
+ * /exames/{id}:
+ *   put:
+ *     summary: Atualiza status ou detalhes de um exame
+ *     tags: [Exames]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
  */
 export const updateExame = async (req, res) => {
   try {
     const { id } = req.params;
     const { status, detalhes } = req.body;
-    const { userPerfil, userId } = req;
+    const { perfil: userPerfil, id: userId } = req.user;
 
     const exame = await prisma.exame.findUnique({ where: { id } });
-    if (!exame) {
-      return res.status(404).json({ error: { code: 'NOT_FOUND' } });
-    }
+    if (!exame) return res.status(404).json({ error: { code: 'NOT_FOUND' } });
 
     if (
       (userPerfil === 'PACIENTE' && exame.pacienteId !== userId) ||
@@ -163,27 +231,34 @@ export const updateExame = async (req, res) => {
       }
     });
 
-    res.json({
-      message: 'Exame atualizado com sucesso',
-      exame: exameAtualizado
-    });
+    res.json({ message: 'Exame atualizado com sucesso', exame: exameAtualizado });
   } catch (error) {
     res.status(500).json({ error: { code: 'SERVER_ERROR' } });
   }
 };
 
 /**
- * CANCELAR EXAME (DELETE LÓGICO)
+ * @swagger
+ * /exames/{id}:
+ *   delete:
+ *     summary: Cancela um exame
+ *     tags: [Exames]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
  */
 export const deleteExame = async (req, res) => {
   try {
     const { id } = req.params;
-    const { userPerfil, userId } = req;
+    const { id: userId, perfil: userPerfil } = req.user;
 
     const exame = await prisma.exame.findUnique({ where: { id } });
-    if (!exame) {
-      return res.status(404).json({ error: { code: 'NOT_FOUND' } });
-    }
+    if (!exame) return res.status(404).json({ error: { code: 'NOT_FOUND' } });
 
     if (userPerfil === 'PACIENTE' && exame.pacienteId !== userId) {
       return res.status(403).json({ error: { code: 'FORBIDDEN' } });
@@ -194,10 +269,7 @@ export const deleteExame = async (req, res) => {
       data: { status: 'CANCELADA' }
     });
 
-    res.json({
-      message: 'Exame cancelado com sucesso',
-      exame: cancelado
-    });
+    res.json({ message: 'Exame cancelado com sucesso', exame: cancelado });
   } catch (error) {
     res.status(500).json({ error: { code: 'SERVER_ERROR' } });
   }

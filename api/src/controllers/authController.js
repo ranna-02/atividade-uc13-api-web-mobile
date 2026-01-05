@@ -3,19 +3,49 @@ import jwt from 'jsonwebtoken';
 import prisma from '../config/database.js';
 
 /**
- * REGISTER
- * Apenas PACIENTE se registra sozinho
+ * @swagger
+ * tags:
+ *   name: Autenticação
+ *   description: Sistema de login e registro
+ */
+
+/**
+ * @swagger
+ * /auth/register:
+ *   post:
+ *     summary: Registra um novo paciente
+ *     tags: [Autenticação]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - nome
+ *               - email
+ *               - senha
+ *             properties:
+ *               nome:
+ *                 type: string
+ *               email:
+ *                 type: string
+ *               senha:
+ *                 type: string
+ *                 minLength: 8
+ *     responses:
+ *       201:
+ *         description: Usuário criado com sucesso
  */
 export const register = async (req, res) => {
   try {
     const { nome, email, senha } = req.body;
 
-    // Validação básica
     if (!nome || !email || !senha) {
       return res.status(400).json({
         error: {
           code: 'VALIDATION_ERROR',
-          message: 'Nome, email e senha são obrigatórios'
+          message: 'Campos obrigatórios ausentes'
         }
       });
     }
@@ -29,11 +59,7 @@ export const register = async (req, res) => {
       });
     }
 
-    // Verifica email duplicado
-    const existingUser = await prisma.usuario.findUnique({
-      where: { email }
-    });
-
+    const existingUser = await prisma.usuario.findUnique({ where: { email } });
     if (existingUser) {
       return res.status(409).json({
         error: {
@@ -43,10 +69,8 @@ export const register = async (req, res) => {
       });
     }
 
-    // Hash da senha
     const senhaHash = await bcrypt.hash(senha, 10);
 
-    // Criação do usuário (sempre PACIENTE)
     const usuario = await prisma.usuario.create({
       data: {
         nome,
@@ -69,40 +93,56 @@ export const register = async (req, res) => {
       usuario
     });
   } catch (error) {
-    console.error('Erro ao registrar usuário:', error);
+    console.error(error);
     return res.status(500).json({
       error: {
         code: 'INTERNAL_SERVER_ERROR',
-        message: 'Erro ao registrar usuário'
+        message: 'Erro ao registrar'
       }
     });
   }
 };
 
 /**
- * LOGIN
+ * @swagger
+ * /auth/login:
+ *   post:
+ *     summary: Autentica um usuário e retorna tokens
+ *     tags: [Autenticação]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *               - senha
+ *             properties:
+ *               email:
+ *                 type: string
+ *               senha:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Login realizado com sucesso
  */
 export const login = async (req, res) => {
   try {
     const { email, senha } = req.body;
 
-    // Validação básica
     if (!email || !senha) {
       return res.status(400).json({
         error: {
           code: 'VALIDATION_ERROR',
-          message: 'Email e senha são obrigatórios'
+          message: 'Email e senha obrigatórios'
         }
       });
     }
 
-    // Busca usuário
-    const usuario = await prisma.usuario.findUnique({
-      where: { email }
-    });
+    const usuario = await prisma.usuario.findUnique({ where: { email } });
 
-    // Mensagem única (anti enumeração de usuários)
-    if (!usuario) {
+    if (!usuario || !usuario.ativo) {
       return res.status(401).json({
         error: {
           code: 'AUTH_INVALID_CREDENTIALS',
@@ -111,18 +151,7 @@ export const login = async (req, res) => {
       });
     }
 
-    if (!usuario.ativo) {
-      return res.status(403).json({
-        error: {
-          code: 'AUTH_FORBIDDEN',
-          message: 'Usuário inativo'
-        }
-      });
-    }
-
-    // Verifica senha
     const senhaValida = await bcrypt.compare(senha, usuario.senhaHash);
-
     if (!senhaValida) {
       return res.status(401).json({
         error: {
@@ -132,14 +161,12 @@ export const login = async (req, res) => {
       });
     }
 
-    // Access token
     const accessToken = jwt.sign(
       { id: usuario.id, perfil: usuario.perfil },
       process.env.JWT_SECRET,
       { expiresIn: process.env.JWT_EXPIRES_IN || '15m' }
     );
 
-    // Refresh token
     const refreshToken = jwt.sign(
       { id: usuario.id },
       process.env.REFRESH_JWT_SECRET || process.env.JWT_SECRET,
@@ -158,7 +185,7 @@ export const login = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Erro ao fazer login:', error);
+    console.error(error);
     return res.status(500).json({
       error: {
         code: 'INTERNAL_SERVER_ERROR',
@@ -169,7 +196,25 @@ export const login = async (req, res) => {
 };
 
 /**
- * REFRESH TOKEN
+ * @swagger
+ * /auth/refresh:
+ *   post:
+ *     summary: Renova o Access Token usando um Refresh Token
+ *     tags: [Autenticação]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - refreshToken
+ *             properties:
+ *               refreshToken:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Token renovado com sucesso
  */
 export const refresh = async (req, res) => {
   try {
@@ -179,26 +224,15 @@ export const refresh = async (req, res) => {
       return res.status(400).json({
         error: {
           code: 'VALIDATION_ERROR',
-          message: 'Refresh token é obrigatório'
+          message: 'Token obrigatório'
         }
       });
     }
 
-    let decoded;
-
-    try {
-      decoded = jwt.verify(
-        refreshToken,
-        process.env.REFRESH_JWT_SECRET || process.env.JWT_SECRET
-      );
-    } catch {
-      return res.status(401).json({
-        error: {
-          code: 'AUTH_INVALID_TOKEN',
-          message: 'Refresh token inválido ou expirado'
-        }
-      });
-    }
+    const decoded = jwt.verify(
+      refreshToken,
+      process.env.REFRESH_JWT_SECRET || process.env.JWT_SECRET
+    );
 
     const usuario = await prisma.usuario.findUnique({
       where: { id: decoded.id }
@@ -208,7 +242,7 @@ export const refresh = async (req, res) => {
       return res.status(403).json({
         error: {
           code: 'AUTH_FORBIDDEN',
-          message: 'Usuário não encontrado ou inativo'
+          message: 'Inativo ou inexistente'
         }
       });
     }
@@ -220,15 +254,14 @@ export const refresh = async (req, res) => {
     );
 
     return res.json({
-      message: 'Token renovado com sucesso',
+      message: 'Token renovado',
       accessToken
     });
-  } catch (error) {
-    console.error('Erro ao renovar token:', error);
-    return res.status(500).json({
+  } catch {
+    return res.status(401).json({
       error: {
-        code: 'INTERNAL_SERVER_ERROR',
-        message: 'Erro ao renovar token'
+        code: 'AUTH_INVALID_TOKEN',
+        message: 'Token expirado'
       }
     });
   }

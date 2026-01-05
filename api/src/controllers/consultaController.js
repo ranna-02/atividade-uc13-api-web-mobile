@@ -1,13 +1,33 @@
 import prisma from '../config/database.js';
 
 /**
- * CRIAR CONSULTA
+ * @swagger
+ * /consultas:
+ *   post:
+ *     summary: Cria uma nova consulta
+ *     tags: [Consultas]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/Consulta'
+ *     responses:
+ *       201:
+ *         description: Consulta criada com sucesso
+ *       400:
+ *         description: Erro de validação
+ *       403:
+ *         description: Acesso negado
+ *       409:
+ *         description: Horário indisponível
  */
 export const createConsulta = async (req, res) => {
   try {
     const { pacienteId, medicoId, dia, hora, detalhes } = req.body;
-    const userPerfil = req.user.perfil;
-    const userId = req.user.id;
+    const { perfil: userPerfil, id: userId } = req.user;
 
     if (!pacienteId || !medicoId || !dia || !hora) {
       return res.status(400).json({
@@ -15,26 +35,22 @@ export const createConsulta = async (req, res) => {
       });
     }
 
-    // Paciente só agenda para si
     if (userPerfil === 'PACIENTE' && pacienteId !== userId) {
       return res.status(403).json({
         error: { code: 'AUTH_FORBIDDEN', message: 'Você só pode agendar para si' }
       });
     }
 
-    const paciente = await prisma.usuario.findUnique({
-      where: { id: pacienteId }
-    });
+    const [paciente, medico] = await Promise.all([
+      prisma.usuario.findUnique({ where: { id: pacienteId } }),
+      prisma.usuario.findUnique({ where: { id: medicoId } })
+    ]);
 
     if (!paciente || !paciente.ativo) {
       return res.status(400).json({
         error: { code: 'VALIDATION_ERROR', message: 'Paciente inválido ou inativo' }
       });
     }
-
-    const medico = await prisma.usuario.findUnique({
-      where: { id: medicoId }
-    });
 
     if (!medico || medico.perfil !== 'MEDICO' || !medico.ativo) {
       return res.status(400).json({
@@ -84,7 +100,16 @@ export const createConsulta = async (req, res) => {
 };
 
 /**
- * LISTAR CONSULTAS
+ * @swagger
+ * /consultas:
+ *   get:
+ *     summary: Lista consultas
+ *     tags: [Consultas]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Lista de consultas
  */
 export const listConsultas = async (req, res) => {
   try {
@@ -113,7 +138,24 @@ export const listConsultas = async (req, res) => {
 };
 
 /**
- * BUSCAR CONSULTA
+ * @swagger
+ * /consultas/{id}:
+ *   get:
+ *     summary: Buscar uma consulta por ID
+ *     tags: [Consultas]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Consulta encontrada
+ *       404:
+ *         description: Consulta não encontrada
  */
 export const getConsulta = async (req, res) => {
   try {
@@ -153,7 +195,31 @@ export const getConsulta = async (req, res) => {
 };
 
 /**
- * ATUALIZAR CONSULTA
+ * @swagger
+ * /consultas/{id}:
+ *   put:
+ *     summary: Atualiza uma consulta
+ *     tags: [Consultas]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: false
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               status:
+ *                 type: string
+ *                 enum: [AGENDADA, REALIZADA, CANCELADA, NAO_COMPARECEU]
+ *               detalhes:
+ *                 type: string
  */
 export const updateConsulta = async (req, res) => {
   try {
@@ -214,7 +280,22 @@ export const updateConsulta = async (req, res) => {
 };
 
 /**
- * CANCELAR CONSULTA
+ * @swagger
+ * /consultas/{id}:
+ *   delete:
+ *     summary: Cancela uma consulta
+ *     tags: [Consultas]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Consulta cancelada
  */
 export const deleteConsulta = async (req, res) => {
   try {
